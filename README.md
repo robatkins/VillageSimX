@@ -1,2 +1,2 @@
 # VillageSimX
-<img src="screenshot.png" alt="Screenshot" width="1370" height="636"/>
+<img src="screenshot.png" alt="Screenshot" width="685" height="318"/>
