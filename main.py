@@ -1,18 +1,22 @@
 import pygame
 import random
 import heapq
+import noise
 
 # Initialize Pygame
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1400, 700
 TILE_SIZE = 64
 GRID_WIDTH = WIDTH // TILE_SIZE
 GRID_HEIGHT = HEIGHT // TILE_SIZE
+CHUNK_SIZE = 16
 grid = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Village Simulation")
+
+
 
 
 # Colors
@@ -25,6 +29,33 @@ YELLOW = (255, 255, 0)
 # Clock
 clock = pygame.time.Clock()
 FPS = 30  # Reduced FPS for slower movement
+
+def generate_chunk(x, y, seed):
+    chunk = []
+    for dy in range(CHUNK_SIZE):
+        row = []
+        for dx in range(CHUNK_SIZE):
+            nx = (x * CHUNK_SIZE + dx) / 100.0
+            ny = (y * CHUNK_SIZE + dy) / 100.0
+            noise_val = noise.pnoise2(nx, ny, octaves=6, seed=seed)
+            tile_type = int((noise_val + 1) * 0.5 * 4)
+            row.append(tile_type)
+        chunk.append(row)
+    return chunk
+
+def get_visible_chunks(camera):
+    left = camera.camera.x // (CHUNK_SIZE * TILE_SIZE)
+    right = (camera.camera.x + WIDTH) // (CHUNK_SIZE * TILE_SIZE)
+    top = camera.camera.y // (CHUNK_SIZE * TILE_SIZE)
+    bottom = (camera.camera.y + HEIGHT) // (CHUNK_SIZE * TILE_SIZE)
+    
+    return {(x, y) for x in range(left, right + 1) for y in range(top, bottom + 1)}
+
+def draw_chunk(chunk, camera):
+    for y, row in enumerate(chunk):
+        for x, tile_type in enumerate(row):
+            rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            pygame.draw.rect(screen, WHITE, camera.apply(rect), 1)
 
 # A* Pathfinding Algorithm
 def heuristic(a, b):
@@ -276,11 +307,19 @@ class House(pygame.sprite.Sprite):
 class Food(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
-        original_image = pygame.image.load('sprites/Apple.png').convert_alpha()
+        
+        # List of food images
+        food_images = ['sprites/Apple.png', 'sprites/Banana.png', 'sprites/Watermelon.png', 'sprites/Pineapple.png', 'sprites/Grape.png']
+        
+        # Randomly choose between Apple and Banana
+        food_image = random.choice(food_images)
+        original_image = pygame.image.load(food_image).convert_alpha()
+        
         self.image = pygame.transform.scale(original_image, (32, 32))  # Scale to 32x32
         self.rect = self.image.get_rect()
         self.grid_pos = (x, y)
-        #Center of a Food within a Grid Cell
+        
+        # Center of a Food within a Grid Cell
         self.rect.center = (x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE // 2)
         self.claimed_by = None  # No villager is claiming this food initially
 
@@ -349,7 +388,7 @@ for _ in range(5):
             break
 
 # Create trees, ensuring they do not overlap with houses, food items, or villagers
-for _ in range(5):  # Number of trees to spawn
+for _ in range(8):  # Number of trees to spawn
     while True:
         x, y = random.randint(0, GRID_WIDTH - 2), random.randint(0, GRID_HEIGHT - 2)
         # Ensure the spawn location for the 2x2 area is not occupied
@@ -373,7 +412,7 @@ for _ in range(9):
             break
 
 # Create villagers
-for _ in range(9):
+for _ in range(2):
     while True:
         x, y = random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)
         if grid[y][x] == 0:
@@ -387,7 +426,7 @@ for _ in range(10):  # Number of bushes to spawn
         x, y = random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)
         # Ensure the spawn location is not occupied by a house, villager, or existing food
         if grid[y][x] == 0 and not any(villager.grid_pos == (x, y) for villager in villagers) and not any(food.grid_pos == (x, y) for food in food_items):
-            bush_type = random.choice([1, 2])  # Randomly select Bush_1 or Bush_2
+            bush_type = random.choice([1, 2, 3, 4])  # Randomly select Bush_1 or Bush_2
             bush = Bush(x, y, bush_type)
             bushes.add(bush)
             break
@@ -421,7 +460,7 @@ while running:
     current_time = pygame.time.get_ticks()
     if current_time - last_food_spawn_time >= 10000:  # 10 seconds
         last_food_spawn_time = current_time
-        num_food_to_spawn = len(villagers) * (1) - 3  # Number of food items to spawn
+        num_food_to_spawn = len(villagers) * (1)  # Number of food items to spawn
 
         for _ in range(num_food_to_spawn):
             while True:
